@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>سجل الفواتير - {{ shop.shop_name }}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Tahoma, "Segoe UI", Arial, sans-serif; margin: 0; background: #f0f2f5; color: #1a1a1a; }
+  header { background: #2f5b8f; color: #fff; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { margin: 0; font-size: 20px; }
+  header a { color: #fff; text-decoration: none; font-size: 14px; }
+  .wrap { max-width: 1000px; margin: 20px auto; padding: 0 16px; }
+  .panel { background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { border-bottom: 1px solid #eee; padding: 9px 8px; text-align: right; }
+  th { background: #f7f9fc; color: #2f5b8f; }
+  a.btn { display: inline-block; background: #2f5b8f; color: #fff; padding: 5px 12px; border-radius: 5px; text-decoration: none; font-size: 13px; margin-inline-start: 4px; }
+  a.btn.danger, button.btn.danger { background: #c0392b; border: 0; cursor: pointer; font-family: inherit; }
+  button.btn { display: inline-block; color: #fff; padding: 5px 12px; border-radius: 5px; font-size: 13px; margin-inline-start: 4px; }
+  .empty { color: #888; text-align: center; padding: 30px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>📋 سجل الفواتير</h1>
+  <a href="{{ url_for('index') }}">← إنشاء فاتورة جديدة</a>
+</header>
+
+<div class="wrap">
+  <div class="panel">
+    {% if orders %}
+    <table>
+      <thead><tr><th>رقم الفاتورة</th><th>التاريخ</th><th>العميل</th><th>الهاتف</th><th>الإجمالي (ج.م)</th><th>إجراءات</th></tr></thead>
+      <tbody>
+        {% for o in orders %}
+        <tr>
+          <td><b>{{ o.number }}</b></td>
+          <td>{{ o.date }}</td>
+          <td>{{ o.customer }}</td>
+          <td>{{ o.phone or '-' }}</td>
+          <td>{{ "%.2f"|format(o.total) }}</td>
+          <td>
+            <a class="btn" href="{{ url_for('invoice', inv=o.number) }}">عرض</a>
+            <a class="btn" href="{{ url_for('invoice_pdf', inv=o.number) }}">تحميل PDF</a>
+            <button class="btn danger" onclick="delOrder('{{ o.number }}')">حذف</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">لا توجد فواتير بعد. أنشئ فاتورة جديدة من الصفحة الرئيسية.</div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+async function delOrder(number) {
+  if (!confirm('حذف الفاتورة ' + number + ' نهائياً؟')) return;
+  try {
+    const res = await fetch(`/orders/${number}/delete`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || 'فشل الحذف'); return; }
+    location.reload();
+  } catch (e) { alert('فشل الحذف'); }
+}
+</script>
+</body>
+</html>

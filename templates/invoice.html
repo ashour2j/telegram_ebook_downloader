@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>فاتورة {{ order.number }} - {{ shop.shop_name }}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Tahoma, "Segoe UI", Arial, sans-serif; margin: 0; background: #eef1f5; color: #111; }
+  .toolbar { position: sticky; top: 0; background: #2f5b8f; padding: 10px 20px; display: flex; gap: 10px; align-items: center; z-index: 10; }
+  .toolbar a, .toolbar button { background: #fff; color: #2f5b8f; border: 0; border-radius: 6px; padding: 9px 16px; font-size: 14px; font-weight: bold; text-decoration: none; cursor: pointer; }
+  .toolbar .spacer { flex: 1; color: #fff; font-weight: bold; }
+
+  .sheet { max-width: 210mm; margin: 18px auto; background: #fff; padding: 14mm 16mm; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+  .head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #2f5b8f; padding-bottom: 12px; margin-bottom: 14px; }
+  .shop h2 { margin: 0; color: #2f5b8f; font-size: 24px; }
+  .shop p { margin: 2px 0; font-size: 13px; color: #444; }
+  .meta { text-align: left; font-size: 13px; line-height: 1.7; }
+  .meta b { color: #2f5b8f; }
+  .customer { display: flex; gap: 30px; font-size: 14px; margin-bottom: 14px; padding: 10px 0; border-bottom: 1px dashed #bbb; }
+  .customer div b { color: #2f5b8f; }
+  table.items { width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 14px; }
+  table.items th { background: #2f5b8f; color: #fff; padding: 8px; font-weight: bold; }
+  table.items td { border: 1px solid #ddd; padding: 7px 8px; }
+  table.items td.num, table.items td.price { text-align: center; }
+  tfoot td { font-weight: bold; padding: 5px 8px; }
+  .totals { width: 260px; margin-inline-start: auto; }
+  .totals div { display: flex; justify-content: space-between; padding: 4px 0; font-size: 14px; }
+  .totals .grand { border-top: 2px solid #2f5b8f; font-size: 18px; font-weight: bold; color: #2f5b8f; margin-top: 6px; }
+  .notes { margin-top: 16px; font-size: 13px; color: #555; border-top: 1px dashed #bbb; padding-top: 10px; }
+  .footer { margin-top: 20px; text-align: center; font-size: 13px; color: #2f5b8f; font-weight: bold; }
+
+  @page { size: A4; margin: 10mm; }
+  @media print {
+    .toolbar { display: none !important; }
+    body { background: #fff; }
+    .sheet { box-shadow: none; margin: 0; max-width: none; padding: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <a href="{{ url_for('index') }}">← فاتورة جديدة</a>
+  <button onclick="window.print()">🖨️ طباعة</button>
+  <a href="{{ url_for('invoice_pdf', inv=order.number) }}">⬇️ تحميل PDF</a>
+  <span class="spacer">فاتورة {{ order.number }}</span>
+</div>
+
+<div class="sheet">
+  <div class="head">
+    <div class="shop">
+      <h2>{{ shop.shop_name }}</h2>
+      <p>{{ shop.shop_address }}</p>
+      <p>هاتف: {{ shop.shop_phone }}</p>
+    </div>
+    <div class="meta">
+      <div><b>رقم الفاتورة:</b> {{ order.number }}</div>
+      <div><b>التاريخ:</b> {{ order.date }}</div>
+    </div>
+  </div>
+
+  <div class="customer">
+    <div><b>العميل:</b> {{ order.customer }}</div>
+    {% if order.phone %}<div><b>الهاتف:</b> {{ order.phone }}</div>{% endif %}
+  </div>
+
+  <table class="items">
+    <thead>
+      <tr><th>م</th><th>الكتاب</th><th>الكمية</th><th>سعر الوحدة (ج.م)</th><th>الإجمالي (ج.م)</th></tr>
+    </thead>
+    <tbody>
+      {% for it in order.line_items %}
+      <tr>
+        <td class="num">{{ loop.index }}</td>
+        <td>{{ it.title }}{% if it.no_cover %} <span style="color:#888;font-size:12px;">(بدون غلاف)</span>{% endif %}</td>
+        <td class="num">{{ it.qty }}</td>
+        <td class="price">{{ "%.2f"|format(it.unit_price) }}</td>
+        <td class="price">{{ "%.2f"|format(it.line_total) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="totals">
+    <div><span>الإجمالي</span><span>{{ "%.2f"|format(order.subtotal) }} ج.م</span></div>
+    <div><span>مصاريف التوصيل</span><span>{{ "%.2f"|format(order.delivery) }} ج.م</span></div>
+    <div class="grand"><span>المطلوب دفعه</span><span>{{ "%.2f"|format(order.total) }} ج.م</span></div>
+  </div>
+
+  {% if order.notes %}
+  <div class="notes"><b>ملاحظات:</b> {{ order.notes }}</div>
+  {% endif %}
+
+  <div class="footer">{{ shop.shop_footer }}</div>
+</div>
+</body>
+</html>

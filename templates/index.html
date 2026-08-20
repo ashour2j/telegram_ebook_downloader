@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>إنشاء فاتورة - {{ AliPack }}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Tahoma, "Segoe UI", Arial, sans-serif; margin: 0; background: #f0f2f5; color: #1a1a1a; }
+  header { background: #2f5b8f; color: #fff; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { margin: 0; font-size: 20px; }
+  header a { color: #fff; text-decoration: none; font-size: 14px; }
+  .header-actions { display: flex; gap: 14px; align-items: center; }
+  .link-btn { background: none; border: 1px solid #fff; color: #fff; border-radius: 6px; padding: 7px 12px; cursor: pointer; font-size: 14px; font-family: inherit; }
+  .link-btn:hover { background: rgba(255,255,255,.15); }
+  .link-btn:disabled { opacity: .6; cursor: wait; }
+  .wrap { max-width: 1100px; margin: 20px auto; padding: 0 16px; display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; } }
+  .panel { background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .filters input, .filters select { padding: 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
+  .filters input[type=text] { flex: 1; min-width: 180px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { border-bottom: 1px solid #eee; padding: 8px 6px; text-align: right; }
+  th { background: #f7f9fc; color: #2f5b8f; white-space: nowrap; }
+  td.qty input { width: 55px; padding: 5px; border: 1px solid #ccc; border-radius: 5px; }
+  .price { white-space: nowrap; }
+  .badge { display: inline-block; background: #eef4fb; color: #2f5b8f; border: 1px solid #cfe0f2; border-radius: 4px; padding: 1px 6px; font-size: 11px; margin-inline-start: 6px; }
+  tr.companion { background: #fafcfe; }
+  tr.companion td:first-child { padding-inline-start: 30px; }
+  td.cover { text-align: center; }
+  .cart h3 { margin-top: 0; color: #2f5b8f; }
+  .cart-item { display: flex; justify-content: space-between; font-size: 13px; padding: 6px 0; border-bottom: 1px dashed #ddd; }
+  .cart-item .qt { color: #666; }
+  .cart-total { font-size: 18px; font-weight: bold; margin-top: 10px; display: flex; justify-content: space-between; color: #2f5b8f; }
+  .form-row { margin: 10px 0; }
+  .form-row label { display: block; font-size: 13px; margin-bottom: 4px; color: #555; }
+  .form-row input, .form-row textarea { width: 100%; padding: 9px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
+  button.primary { width: 100%; padding: 12px; background: #2f5b8f; color: #fff; border: 0; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; }
+  button.primary:hover { background: #24496f; }
+  .hint { color: #999; font-size: 12px; }
+  .msg { margin-top: 10px; font-size: 13px; color: #c0392b; display: none; }
+  input[type=checkbox] { width: 18px; height: 18px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>📚 {{ AliPack }} - إنشاء فاتورة</h1>
+  <div class="header-actions">
+    <button class="link-btn" onclick="reindex()">🔄 تحديث المكتبة</button>
+    <a href="{{ url_for('orders') }}">سجل الفواتير ←</a>
+  </div>
+</header>
+
+{% macro book_row(b, nested) %}
+{% set parts = [] %}
+{% if b.type and b.type != 'كتاب' %}{% set _ = parts.append(b.type) %}{% endif %}
+{% if b.series %}{% set _ = parts.append(b.series) %}{% endif %}
+{% if b.subject %}{% set _ = parts.append(b.subject) %}{% endif %}
+{% if b.grade_arabic %}{% set _ = parts.append(b.grade_arabic) %}{% endif %}
+{% if b.term_arabic %}{% set _ = parts.append(b.term_arabic) %}{% endif %}
+{% if b.year %}{% set _ = parts.append(b.year|string) %}{% endif %}
+{% set label = parts | join(' - ') %}
+<tr class="{% if nested %}companion{% endif %}"
+    data-search="{{ b.title }} {{ b.series }} {{ b.subject }} {{ b.publisher }}{% if b.type != 'كتاب' %} {{ b.type }}{% endif %}"
+    data-subject="{{ b.subject }}" data-grade="{{ b.grade }}" data-term="{{ b.term }}">
+  <td><input type="checkbox" class="sel" data-id="{{ b.id }}"
+             data-title="{{ label }}{% if b.publisher %} ({{ b.publisher }}){% endif %}"
+             data-price="{{ b.unit_price }}" data-price-nc="{{ b.no_cover_price or b.unit_price }}"></td>
+  <td>{{ label }}{% if b.publisher %} ({{ b.publisher }}){% endif %}{% if b.type != 'كتاب' %} <span class="badge">{{ b.type }}</span>{% endif %}</td>
+  <td>{{ b.subject }}</td>
+  <td>{{ b.grade or '-' }}</td>
+  <td>{{ b.term or '-' }}</td>
+  <td class="price">{{ b.unit_price }}</td>
+  <td class="qty"><input type="number" min="1" value="1" disabled></td>
+  <td class="cover"><input type="checkbox" class="nocover" data-id="{{ b.id }}" disabled title="بدون غلاف (كتيب)"></td>
+</tr>
+{% endmacro %}
+
+<div class="wrap">
+  <div class="panel">
+    <div class="filters">
+      <input type="text" id="search" placeholder="ابحث عن كتاب... (اسم، مادة، ناشر)">
+      <select id="f_subject">
+        <option value="">كل المواد</option>
+        {% for s in books | map(attribute='subject') | select | unique | list | sort %}
+        <option value="{{ s }}">{{ s }}</option>
+        {% endfor %}
+      </select>
+      <select id="f_grade">
+        <option value="">كل الصفوف</option>
+        {% for g in books | map(attribute='grade') | select | unique | list | sort %}
+        <option value="{{ g }}">الصف {{ g }}</option>
+        {% endfor %}
+      </select>
+      <select id="f_term">
+        <option value="">كل الترمات</option>
+        <option value="1">الترم الأول</option>
+        <option value="2">الترم الثاني</option>
+      </select>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th></th><th>الكتاب</th><th>المادة</th><th>الصف</th><th>الترم</th><th>السعر (ج.م)</th><th>الكمية</th><th>بدون غلاف</th></tr>
+      </thead>
+      <tbody id="bookRows">
+        {% for g in groups %}
+          {% if g.main %}
+            {{ book_row(g.main, False) }}
+            {% for c in g.companions %}{{ book_row(c, True) }}{% endfor %}
+          {% else %}
+            {% for c in g.companions %}{{ book_row(c, True) }}{% endfor %}
+          {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="panel cart">
+    <h3>الفاتورة</h3>
+    <div id="cartItems"></div>
+    <div class="cart-total"><span>الإجمالي</span><span id="cartTotal">0.00 ج.م</span></div>
+
+    <div class="form-row"><label>اسم العميل *</label><input id="customer" placeholder="الاسم بالكامل"></div>
+    <div class="form-row"><label>رقم الهاتف</label><input id="phone" placeholder="01xxxxxxxxx"></div>
+    <div class="form-row"><label>مصاريف توصيل (ج.م)</label><input id="delivery" type="number" min="0" step="0.5" value="0"></div>
+    <div class="form-row"><label>ملاحظات</label><textarea id="notes" rows="2"></textarea></div>
+    <button class="primary" onclick="createOrder()">إنشاء الفاتورة</button>
+    <div class="msg" id="msg"></div>
+    <div class="hint">السعر = (عدد الأوراق × 0.65) + 20 جنيه غلاف. فعّل "بدون غلاف" للكتب الصغيرة لخصم الـ 20 جنيه.</div>
+  </div>
+</div>
+
+<script>
+const cart = {};  // id -> {qty, nocover}
+
+function priceFor(id, nocover) {
+  const cb = document.querySelector(`.sel[data-id="${id}"]`);
+  if (!cb) return 0;
+  return parseFloat(nocover ? (cb.dataset.priceNc || cb.dataset.price) : cb.dataset.price) || 0;
+}
+
+function applyFilters() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const sub = document.getElementById('f_subject').value;
+  const gr = document.getElementById('f_grade').value;
+  const tm = document.getElementById('f_term').value;
+  document.querySelectorAll('#bookRows tr').forEach(row => {
+    const s = row.dataset.search.toLowerCase();
+    const show = (!q || s.includes(q)) &&
+                 (!sub || row.dataset.subject === sub) &&
+                 (!gr || row.dataset.grade === gr) &&
+                 (!tm || row.dataset.term === tm);
+    row.style.display = show ? '' : 'none';
+  });
+}
+document.getElementById('search').addEventListener('input', applyFilters);
+document.getElementById('f_subject').addEventListener('change', applyFilters);
+document.getElementById('f_grade').addEventListener('change', applyFilters);
+document.getElementById('f_term').addEventListener('change', applyFilters);
+
+function refreshCart() {
+  const box = document.getElementById('cartItems');
+  let html = '', total = 0;
+  for (const id in cart) {
+    const e = cart[id];
+    const cb = document.querySelector(`.sel[data-id="${id}"]`);
+    if (!cb) continue;
+    const price = priceFor(id, e.nocover);
+    const title = (e.nocover ? 'بدون غلاف · ' : '') + cb.dataset.title;
+    total += price * e.qty;
+    html += `<div class="cart-item"><span>${title} × ${e.qty}</span><span class="qt">${(price*e.qty).toFixed(2)}</span></div>`;
+  }
+  box.innerHTML = html || '<div class="hint">لم يتم اختيار كتب بعد</div>';
+  document.getElementById('cartTotal').textContent = total.toFixed(2) + ' ج.م';
+}
+
+document.querySelectorAll('.sel').forEach(cb => {
+  cb.addEventListener('change', () => {
+    const id = cb.dataset.id;
+    const row = cb.closest('tr');
+    const qtyInput = row.querySelector('.qty input');
+    const nc = row.querySelector('.nocover');
+    qtyInput.disabled = !cb.checked;
+    nc.disabled = !cb.checked;
+    if (cb.checked) cart[id] = { qty: parseInt(qtyInput.value) || 1, nocover: nc.checked };
+    else delete cart[id];
+    refreshCart();
+  });
+});
+document.querySelectorAll('.nocover').forEach(nc => {
+  nc.addEventListener('change', () => {
+    const id = nc.dataset.id;
+    if (!(id in cart)) return;
+    cart[id].nocover = nc.checked;
+    const row = nc.closest('tr');
+    row.querySelector('.price').textContent = priceFor(id, nc.checked).toFixed(2);
+    refreshCart();
+  });
+});
+document.querySelectorAll('#bookRows .qty input').forEach(inp => {
+  inp.addEventListener('change', () => {
+    const cb = inp.closest('tr').querySelector('.sel');
+    if (cb && cb.checked) {
+      cart[cb.dataset.id].qty = parseInt(inp.value) || 1;
+      refreshCart();
+    }
+  });
+});
+
+async function createOrder() {
+  const customer = document.getElementById('customer').value.trim();
+  const msg = document.getElementById('msg');
+  msg.style.display = 'none';
+  if (!customer) { msg.textContent = 'اكتب اسم العميل أولاً'; msg.style.display = 'block'; return; }
+  const items = Object.entries(cart).map(([id, e]) => ({ id: parseInt(id), qty: e.qty, no_cover: e.nocover }));
+  if (!items.length) { msg.textContent = 'اختر كتاباً واحداً على الأقل'; msg.style.display = 'block'; return; }
+  const res = await fetch('/create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      customer,
+      phone: document.getElementById('phone').value.trim(),
+      notes: document.getElementById('notes').value.trim(),
+      delivery: parseFloat(document.getElementById('delivery').value) || 0,
+      items,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) { msg.textContent = data.error || 'حدث خطأ'; msg.style.display = 'block'; return; }
+  window.location.href = data.redirect;
+}
+
+async function reindex() {
+  const btn = document.querySelector('.link-btn');
+  btn.disabled = true;
+  const old = btn.textContent;
+  btn.textContent = 'جارٍ التحديث...';
+  try {
+    const res = await fetch('/reindex', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || 'فشل التحديث'); }
+    else { location.reload(); return; }
+  } catch (e) {
+    alert('فشل التحديث');
+  }
+  btn.textContent = old;
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>
