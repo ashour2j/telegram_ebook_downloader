@@ -5,7 +5,7 @@ import asyncio
 import threading
 import time
 from pathlib import Path
-from typing import Optional, Union, List, Tuple
+from typing import Optional, Union, List, Tuple, Set
 
 from telethon import TelegramClient
 from telethon.tl.types import Message, MessageMediaDocument, DocumentAttributeFilename, DialogFilter
@@ -323,6 +323,10 @@ class TelegramEbookDownloader:
         logger.info(f"Library size index: {len(self._library_sizes)} unique file size(s) found.")
 
         self.stats["total_targets"] = len(target_chats)
+
+        grand_total_scanned = 0
+        grand_total_downloaded = 0
+        grand_total_skipped = 0
 
         for idx, (chat_name, chat_entity) in enumerate(target_chats, start=1):
             self.stats["current_target_index"] = idx

@@ -4,3 +4,7 @@
 __pycache__/
 *.pyc
 downloads/
+library/
+orders/
+graphify-out/
+*.part
